@@ -119,3 +119,130 @@ See VALIDATION.md for checks executed when this package was created.
 - New endpoints: `/park` (partner holds the call about 1 s), `/pycpu` (pure-Python CPU work, holds the GIL), `/membuf` (allocate and touch 16 MiB), `/memobj` (build 50,000 records).
 - `gil/` holds the images `lb-gil` (PYVER=3.14) and `lb-nogil` (PYVER=3.14t). `--fast` shortens timings to about 7 minutes per run; `--tag` names a campaign and makes the run resumable.
 - Drivers: `scripts/phase1.ps1`, `phase2.ps1`, `phase3.ps1` (GIL and memory). Reports: `python scripts/report_html.py` builds `results/report.html`. Results and caveats: FINDINGS.md; other angles: PERSPECTIVES.md.
+
+## Test map: what ran locally and what runs on the cloud VM
+
+The diagrams are Mermaid, which GitHub renders in this file. The cloud rerun plan, scripts and
+workflow are in [`rerun/`](rerun/RERUN_PLAN.md) and [`.github/workflows/rerun.yml`](.github/workflows/rerun.yml).
+
+### How one measured run works (same on both)
+
+```mermaid
+flowchart LR
+    M["matrix.py<br/>cell order, resume, capacity gate"] --> R["run.py<br/>one measured run"]
+    R --> C["Candidate container<br/>2 CPUs, 512 MiB, no swap"]
+    R --> K["k6 load generator<br/>constant arrival rate"]
+    R --> P["Mock partner<br/>100 ms delay"]
+    R --> S["Sampler sidecar<br/>cgroup memory and CPU, 1 Hz"]
+    K -->|requests| C
+    C -->|partner calls| P
+    S -.->|reads, outside the candidate| C
+    R --> J["report.json<br/>latency, failures, drops,<br/>memory, CPU per success"]
+    J --> Z["summarize.py<br/>pass counts, ranges,<br/>pre-registered decision rule"]
+    X["criteria.json<br/>frozen before the first run"] -.-> R
+    X -.-> Z
+```
+
+### Request flow per endpoint
+
+```mermaid
+sequenceDiagram
+    participant K as k6 (constant arrival rate)
+    participant S as Candidate service
+    participant M as Mock partner
+    K->>S: GET /partner
+    S->>M: one call (mock waits 100 ms)
+    M-->>S: value 42
+    S-->>K: value 42
+    K->>S: GET /fanout
+    par three concurrent calls
+        S->>M: call 1 (100 ms)
+        S->>M: call 2 (100 ms)
+        S->>M: call 3 (100 ms)
+    end
+    S-->>K: total 126
+    K->>S: GET /park
+    S->>M: call held about 1 s
+    Note over S: roughly rate x 1 s requests in flight
+    M-->>S: reply after about 1 s
+    S-->>K: response
+    K->>S: GET /payload
+    S->>M: fetch 32 KiB JSON field
+    M-->>S: JSON body
+    S-->>K: id 7, bytes 32768 (after parsing)
+    K->>S: GET /cpu or /pycpu
+    Note over S: cpu: SHA-256 of 1 MiB, 100 times.<br/>pycpu: about 45 ms pure-Python arithmetic that holds the GIL
+    S-->>K: digest or result
+```
+
+### How each stack runs a request (threads and tasks)
+
+```mermaid
+flowchart TD
+    REQ["Incoming request"] --> JV & JP & GO & PY & PN & FA
+    subgraph Java
+        JV["java: virtual thread per request<br/>blocked calls park cheaply<br/>256-call admission semaphore"]
+        JP["java-platform: fixed pool of 200 OS threads<br/>a blocked call holds a thread<br/>fails past 200 in flight"]
+    end
+    subgraph Go
+        GO["go: goroutine per request<br/>3 goroutines for fanout<br/>scheduled on up to 2 CPUs"]
+    end
+    subgraph Python
+        PY["python / aiohttp: one process, one asyncio event loop<br/>await frees the loop during waits<br/>GIL on: one core of CPU work at most"]
+        PN["gil vs nogil images (same code)<br/>CPU work runs in a 4-thread pool<br/>GIL on: threads take turns on one core<br/>GIL off: threads use both cores"]
+        FA["fastapi and django: uvicorn, asyncio loop<br/>1 worker process, or 2 workers (-2w)<br/>each worker has its own loop and GIL"]
+    end
+    JV --> LIM["All stacks: container capped at 2 CPUs and 512 MiB"]
+    JP --> LIM
+    GO --> LIM
+    PY --> LIM
+    PN --> LIM
+    FA --> LIM
+```
+
+### Already run: local pilot (Windows laptop, Docker Desktop, 1 repeat per cell)
+
+Single-repeat runs, mostly `--fast` (about 7 minutes each). Results are directional only; see FINDINGS.md.
+
+```mermaid
+flowchart TD
+    L["Local pilot host<br/>16-CPU Windows laptop, Docker Desktop<br/>candidate 2 CPUs / 512 MiB"]
+    L --> A["Pilot: Go, Java, Python<br/>health, partner, payload, cpu, fanout<br/>steady ladder 50 to 1000 RPS"]
+    L --> B["p1 and p2: concurrency models<br/>park, fanout, payload, cpu<br/>virtual threads vs goroutines vs 200 platform threads<br/>FastAPI and Django, 1 and 2 workers"]
+    L --> G["p3: GIL vs free-threaded Python<br/>pycpu 10 to 40 RPS, cpu 20 to 50<br/>partner 1000, payload 2000<br/>aiohttp, FastAPI, Django + forced-GIL control"]
+    L --> D["p4: memory-heavy work<br/>membuf and memobj at 10, 20, 40 RPS<br/>Go, Java, Python, FastAPI, Django"]
+    L --> E["p5: Django partner probe<br/>100, 300, 600 RPS"]
+    A --> F1["Cost differs, latency does not:<br/>Go 6-23 MiB, Python 30-55, Java 170-220"]
+    B --> F2["Java platform pool fails at 250 in flight;<br/>virtual threads and Go hold 1000"]
+    G --> F3["GIL on stops near 10 RPS;<br/>GIL off reaches 30 on aiohttp"]
+    D --> F4["Many small Python objects fail at 20 RPS;<br/>Go and Java pass 40"]
+    E --> F5["Django fails far below aiohttp and FastAPI"]
+    F1 & F2 & F3 & F4 & F5 --> LIM["Not yet done: 3 repeats, soak and leak,<br/>startup times, noise floor, cloud host, database workload"]
+```
+
+### To run: cloud rerun (GitHub Actions, 4 vCPU Linux, 3 repeats, `--fast`)
+
+Each batch is one job on one runner, so every comparison stays on the same machine. The candidate
+is pinned to CPUs 0 and 1, and the mock, k6 and sampler to CPUs 2 and 3.
+
+```mermaid
+flowchart TD
+    W["GitHub Actions: rerun workflow<br/>manual start, one job per batch<br/>ubuntu-24.04, 4 vCPU, public repo"]
+    W --> S0["Every job first:<br/>build images with CPython pinned to 3.14.3<br/>calibrate mock and k6 with the same CPU pinning"]
+    S0 --> J1["aiohttp batch (33 runs)<br/>pycpu: gil, t-gilon at 10, 15, 20<br/>nogil at 10, 15, 20, 30, 40"]
+    S0 --> J2["fastapi batch (27 runs)<br/>pycpu: gil, nogil, t-gilon at 10, 15, 20"]
+    S0 --> J3["django batch (27 runs)<br/>pycpu: gil, nogil, t-gilon at 10, 15, 20"]
+    S0 --> J4["threads-cost batch (30 runs)<br/>park: java, java-platform, go at 250, 1000<br/>partner at 1000: go, java, python, fastapi"]
+    S0 --> J5["noise batch (10 runs)<br/>go partner 250, aiohttp-nogil pycpu 10<br/>5 repeats each"]
+    S0 -.-> J6["optional batch (42 runs)<br/>memobj 10, 20 on five stacks<br/>cpu 30, 40 on aiohttp gil and nogil"]
+    J1 --> CA["Claims A and B:<br/>GIL ceiling and forced-GIL control"]
+    J2 --> CA
+    J3 --> CA
+    J4 --> CC["Claims C and D:<br/>waiting calls and memory cost"]
+    J5 --> CN["Noise floor of the runner"]
+    J6 -.-> CE["Claims E and F:<br/>small objects and hashlib control"]
+    CA & CC & CN & CE --> OUT["Artifacts per batch: results folder + summary<br/>report as passes out of 3, median and min-max range"]
+```
+
+Cells whose offered load would exceed the calibrated mock and generator capacity are skipped and
+logged in `results/matrix_skipped.log`. On a 4 vCPU runner the 1000 RPS cells may be skipped.
