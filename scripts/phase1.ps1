@@ -1,0 +1,1 @@
+python scripts/matrix.py --group core --pass coarse --fast --tag p1 --endpoints partner,payload,cpu; python scripts/matrix.py --group core --pass coarse --fast --tag p1 --endpoints fanout --rates 50,150,300

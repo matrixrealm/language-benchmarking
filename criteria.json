@@ -1,0 +1,10 @@
+{
+  "_comment": "Pre-register before the first measured run. run.py stores this file's SHA-256 in metadata.json; changing it after results exist is visible.",
+  "slo": {"p99_ms": 250, "cpu_p99_ms": 2000, "park_p99_ms": 1250, "max_failure_rate": 0.001, "max_dropped_iterations": 0},
+  "endpoint_weights": {"partner": 3, "fanout": 3, "payload": 3, "park": 2, "health": 1, "cpu": 1},
+  "inconclusive_pct": 10,
+  "min_repeats": 3,
+  "leak": {"max_slope_mib_per_hour": 10, "min_window_minutes": 30},
+  "recovery": {"max_ratio_to_idle": 1.5},
+  "capacity": {"mock_headroom": 2.0}
+}
