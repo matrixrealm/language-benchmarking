@@ -1,0 +1,48 @@
+name: rerun
+# Manual only. Each batch is one job on one 4 vCPU runner (candidate on CPUs 0,1; mock, k6, sampler on 2,3).
+# A batch keeps a whole comparison on the same VM. Results are uploaded even if a job fails or times out.
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'JSON list of batches: aiohttp, fastapi, django, threads-cost, optional, noise'
+        default: '["aiohttp","fastapi","django","threads-cost"]'
+
+jobs:
+  run:
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: ${{ fromJSON(inputs.batches) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Host facts
+        run: |
+          nproc; lscpu | grep -E 'Model name|Thread|Core'; free -m; docker version --format '{{.Server.Version}}'
+          stat -fc %T /sys/fs/cgroup
+      - name: Build images
+        run: python rerun/build_images.py
+      - name: Run batch
+        run: |
+          if [ "${{ matrix.batch }}" = noise ]; then
+            python scripts/noise.py --language go --endpoint partner --rate 250 --runs 5 --fast --cpuset 0,1 --helper-cpuset 2,3
+            python scripts/noise.py --language aiohttp-nogil --endpoint pycpu --rate 10 --runs 5 --fast --cpuset 0,1 --helper-cpuset 2,3
+          else
+            python rerun/ci_batch.py "${{ matrix.batch }}"
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          python scripts/summarize.py | tee "results/summary-${{ matrix.batch }}.md" || true
+          cat results/matrix_skipped.log 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-${{ matrix.batch }}
+          path: results/
+          retention-days: 90
