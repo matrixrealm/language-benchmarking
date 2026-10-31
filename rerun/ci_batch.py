@@ -14,6 +14,8 @@ BATCHES = {
                 ['--candidates', 'aiohttp-nogil', '--endpoints', 'pycpu', '--rates', '10,15,20,30,40']],
     'fastapi': [['--candidates', 'fastapi-gil,fastapi-nogil,fastapi-t-gilon', '--endpoints', 'pycpu', '--rates', GIL_RATES]],
     'django':  [['--candidates', 'django-gil,django-nogil,django-t-gilon', '--endpoints', 'pycpu', '--rates', GIL_RATES]],
+    # claim A follow-up: cloud1 only ran the GIL builds to 20 RPS, so push them to the rates where aiohttp-nogil was tested
+    'gil-ceiling': [['--candidates', 'aiohttp-gil,aiohttp-t-gilon', '--endpoints', 'pycpu', '--rates', '30,40']],
     # claim C (waiting calls) and D (memory cost at 1000 RPS)
     'threads-cost': [['--candidates', 'java,java-platform,go', '--endpoints', 'park', '--rates', '250,1000'],
                      ['--candidates', 'go,java,python,fastapi', '--endpoints', 'partner', '--rates', '1000']],

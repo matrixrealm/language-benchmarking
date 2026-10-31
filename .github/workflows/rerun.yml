@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       batches:
-        description: 'JSON list of batches: aiohttp, fastapi, django, threads-cost, optional, noise'
+        description: 'JSON list of batches: aiohttp, fastapi, django, gil-ceiling, threads-cost, optional, noise'
         default: '["aiohttp","fastapi","django","threads-cost"]'
 
 jobs:
