@@ -12,6 +12,7 @@ def main():
     for d in ('python', 'java', 'go', 'fastapi', 'django'): docker('build', '-t', f'lb-{d}', ROOT / d)
     docker('build', '-t', 'lb-gil', '-f', ROOT / 'rerun' / 'Dockerfile.gil', '--build-arg', f'PYVER={a.pyver}', ROOT / 'gil')
     docker('build', '-t', 'lb-nogil', '-f', ROOT / 'rerun' / 'Dockerfile.gil', '--build-arg', f'PYVER={a.pyver}t', ROOT / 'gil')
+    docker('build', '-t', 'lb-gil-uv', '-f', ROOT / 'rerun2' / 'Dockerfile.gil-uv', '--build-arg', f'PYVER={a.pyver}', ROOT / 'gil')
     docker('pull', 'grafana/k6:1.3.0')
 
 if __name__ == '__main__': main()

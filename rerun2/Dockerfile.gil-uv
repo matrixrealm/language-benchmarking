@@ -1,0 +1,13 @@
+# Rerun 2: GIL build (stock CPython, same pinned patch as lb-gil) with uvloop + httptools, CPU work in a 4-thread pool.
+# Separate from rerun/Dockerfile.gil so the cloud1 images and results stay unchanged.
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+ARG PYVER=3.14.3
+ENV UV_PYTHON_PREFERENCE=only-managed
+WORKDIR /app
+RUN uv venv /venv --python ${PYVER}
+ENV PATH=/venv/bin:$PATH VIRTUAL_ENV=/venv
+COPY requirements.txt .
+RUN uv pip install -r requirements.txt uvloop httptools
+COPY app_aiohttp.py app_fastapi.py app_django.py mock.py ./
+ENV APP=fastapi THREADS=4
+CMD ["sh", "-c", "case $APP in fastapi) exec uvicorn app_fastapi:app --host 0.0.0.0 --port 8080 --loop uvloop --http httptools --no-access-log;; django) exec uvicorn app_django:application --host 0.0.0.0 --port 8080 --loop uvloop --http httptools --no-access-log;; esac"]

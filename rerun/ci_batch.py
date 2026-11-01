@@ -19,6 +19,23 @@ BATCHES = {
     # claim C (waiting calls) and D (memory cost at 1000 RPS)
     'threads-cost': [['--candidates', 'java,java-platform,go', '--endpoints', 'park', '--rates', '250,1000'],
                      ['--candidates', 'go,java,python,fastapi', '--endpoints', 'partner', '--rates', '1000']],
+    # claim G (concurrency = rate x latency): the five-way comparison Go / Java virtual / Java classic / FastAPI / Django.
+    # Go, java and java-platform on park, and go/java on partner 1000, already exist from threads-cost; this fills the rest.
+    'concurrency': [['--candidates', 'fastapi-gil,django-gil', '--endpoints', 'park', '--rates', '250,1000'],
+                    ['--candidates', 'fastapi-gil,django-gil,java-platform', '--endpoints', 'partner', '--rates', '1000'],
+                    ['--candidates', 'django-gil', '--endpoints', 'partner', '--rates', '300'],
+                    ['--candidates', 'java-platform-2000', '--endpoints', 'park', '--rates', '250,1000']],
+    # rerun2 (RERUN2_PLAN.md): uvloop + 4-thread pool vs plain asyncio vs uvloop inline. Q1 pycpu ceiling, with the 30/40 baseline on the same VM.
+    'uv-fastapi': [['--candidates', 'fastapi-gil-uv', '--endpoints', 'pycpu', '--rates', '10,15,20,30,40'],
+                   ['--candidates', 'fastapi-gil', '--endpoints', 'pycpu', '--rates', '30,40']],
+    'uv-django':  [['--candidates', 'django-gil-uv', '--endpoints', 'pycpu', '--rates', '10,15,20,30,40'],
+                   ['--candidates', 'django-gil', '--endpoints', 'pycpu', '--rates', '30,40']],
+    # Q2: hashing, pool vs inline, both with uvloop
+    'uv-cpu': [['--candidates', 'fastapi,django,fastapi-gil-uv,django-gil-uv', '--endpoints', 'cpu', '--rates', '30,40,50']],
+    # Q3: waiting calls
+    'uv-concurrency': [['--candidates', 'fastapi-gil-uv,django-gil-uv', '--endpoints', 'partner', '--rates', '1000'],
+                       ['--candidates', 'fastapi-gil-uv,django-gil-uv', '--endpoints', 'park', '--rates', '250,1000']],
+    # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
     # optional E and F
     'optional': [['--candidates', 'go,java,python,fastapi,django', '--endpoints', 'memobj', '--rates', '10,20'],
                  ['--candidates', 'aiohttp-gil,aiohttp-nogil', '--endpoints', 'cpu', '--rates', '30,40']],

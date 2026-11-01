@@ -43,7 +43,7 @@ async def handle(request, path):
         if path == 'health': result = {'ok': True}
         elif path == 'meta':
             result = {'runtime': 'python', 'framework': 'django', 'concurrency': 'asyncio', 'workers': int(os.getenv('WORKERS', '1')), 'pid': os.getpid(),
-                      'version': sys.version.split()[0], 'django': django.get_version(), 'partner_limit': LIMIT,
+                      'version': sys.version.split()[0], 'django': django.get_version(), 'partner_limit': LIMIT, 'loop': type(asyncio.get_running_loop()).__module__,
                       'gil_enabled': GIL(), 'threads': THREADS}
         elif path == 'partner': result = await fetch('/delay')
         elif path == 'park': result = await fetch('/park')
