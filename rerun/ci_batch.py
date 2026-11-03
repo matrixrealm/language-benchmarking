@@ -35,6 +35,11 @@ BATCHES = {
     # Q3: waiting calls
     'uv-concurrency': [['--candidates', 'fastapi-gil-uv,django-gil-uv', '--endpoints', 'partner', '--rates', '1000'],
                        ['--candidates', 'fastapi-gil-uv,django-gil-uv', '--endpoints', 'park', '--rates', '250,1000']],
+    # rerun2 follow-ups (RERUN2_RESULTS.md): FastAPI ceiling was not reached at 40 RPS; cpu rates 30-50 were all above capacity.
+    # Both FastAPI builds in one job so they share a runner CPU model.
+    'uv-fastapi-high': [['--candidates', 'fastapi-gil-uv,fastapi-gil', '--endpoints', 'pycpu', '--rates', '50,60,80']],
+    'uv-cpu-low-fastapi': [['--candidates', 'fastapi,fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '10,15,20,25']],
+    'uv-cpu-low-django': [['--candidates', 'django,django-gil-uv', '--endpoints', 'cpu', '--rates', '10,15,20,25']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
     # optional E and F
     'optional': [['--candidates', 'go,java,python,fastapi,django', '--endpoints', 'memobj', '--rates', '10,20'],
