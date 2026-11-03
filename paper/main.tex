@@ -1,0 +1,63 @@
+% IEEEtran journal draft. Numbers come from paper/tables/*.tex (paper/make_tables.py) and paper/tables/numbers.json.
+% TODO markers must all be resolved before submission. Compile in Overleaf (IEEEtran class).
+\documentclass[journal]{IEEEtran}
+\usepackage{booktabs,hyperref,cite}
+\begin{document}
+\title{Does Removing the GIL Raise the Ceiling? A Repeated Cloud Benchmark of Python, Java and Go Services That Wait on Partners}
+\author{TODO author names and affiliations}
+\maketitle
+
+\begin{abstract}
+Integration services such as hotel channel-manager connectors spend most of their time waiting on partner systems and occasionally do CPU work. We compare Go, Java and several Python stacks on the same synthetic connector workload, running every configuration three times on a free shared cloud runner inside containers limited to 2 CPUs and 512~MiB. A cell passes only if all three repeats meet a latency and error SLO. On waiting calls, Go and Java virtual threads sustain 1000 requests in flight, while a 200-thread Java pool fails every request. At 1000 requests per second, memory ranges from 23~MiB (Go) to 217~MiB (Java virtual threads). For CPU-bound Python, removing the GIL with the free-threaded CPython 3.14 build did not raise the throughput ceiling of an asyncio service with a thread pool, although CPU use spread from at most one core to about two. Jobs of the same workflow landed on different CPU models, which we treat as a threat to validity. TODO update with run \#6 results.
+\end{abstract}
+
+\begin{IEEEkeywords}
+benchmarking, Python, GIL, free-threading, virtual threads, Go, tail latency, cloud performance variability
+\end{IEEEkeywords}
+
+\section{Introduction}
+Services that connect a property-management system to partners (channel managers, payment providers, loyalty systems) are dominated by waiting: each request makes one or more calls to a slow outside system and returns. The runtime choice affects how many such calls can be in flight, how much memory that costs, and what happens when a request needs real computation. Two recent changes make this choice worth re-testing: Java 21 finalised virtual threads~\cite{jep444}, and CPython 3.13 and 3.14 made a build without the Global Interpreter Lock (GIL) available and then officially supported~\cite{pep703,pep779}.
+
+We ask four questions on a controlled, repeated benchmark: (Q1) how do runtimes differ when many calls wait at once; (Q2) what does each cost in memory at a fixed request rate; (Q3) does the free-threaded Python build raise the ceiling for CPU-bound work; and (Q4) does a faster event loop (uvloop) or a thread pool change the Python result. Our contributions are an open, reproducible harness and workflow; a repeated measurement of these questions on GitHub-hosted runners; and a documented account of where such measurements break down, in particular CPU-model variation between jobs.
+
+\section{Background and Related Work}
+\textbf{Free-threaded CPython.} PEP~703 proposes a build option that removes the GIL~\cite{pep703}, and PEP~779 sets the criteria under which that build becomes officially supported but optional~\cite{pep779}. Extensions must declare compatibility, otherwise the interpreter can re-enable the GIL; our images avoid compiled event-loop extensions in the main experiment for this reason. \textbf{Virtual threads.} JEP~444 delivers lightweight threads in JDK~21 that let blocking code scale to many concurrent waits~\cite{jep444}. \textbf{Load models.} Open and closed workload generators produce different results at the same nominal load~\cite{schroeder2006open}; we use an open model (constant arrival rate) so that slow responses do not reduce the offered load~\cite{k6}. \textbf{Tail latency.} Percentile latency, not the mean, determines service quality at scale~\cite{dean2013tail}, so our pass/fail rule is a p99 bound. \textbf{Cloud variability.} Performance measured on public cloud instances varies between instance types and over time, with coefficients of variation from near zero to over 100\% for some microbenchmarks~\cite{laaber2019microbenchmarking}; we therefore repeat every cell and record the CPU model of every job. TODO: add and verify further related work on language and framework benchmarks.
+
+\section{Method}
+\subsection{Workload and candidates}
+Each service exposes endpoints that mimic connector work: \texttt{/partner} (one call to a fake partner that answers after 100~ms), \texttt{/park} (a call held for about one second, so the request rate equals the number of calls in flight), and \texttt{/pycpu} (about 35~ms of pure-Python arithmetic on the reference CPU, run in a 4-thread pool). Candidates are Go, Java (virtual threads and a 200-thread platform pool), Python with aiohttp, FastAPI and Django on uvicorn, and, for the GIL study, CPython 3.14.3 and the free-threaded 3.14.3t with the GIL off (\texttt{PYTHON\_GIL=0}), plus a control that runs the free-threaded build with the GIL forced on.
+\subsection{Execution}
+Each run starts a fresh set of containers: the candidate limited to 2 CPUs and 512~MiB without swap, a fake partner, the k6 load generator~\cite{k6} and a resource sampler reading cgroup counters once per second from outside the candidate. A run has a warm-up (2~min, discarded), a measured phase (3~min) and a recovery phase (60~s). The candidate is pinned to CPUs 0--1 of a 4-vCPU GitHub-hosted Ubuntu 24.04 runner, and the other components to CPUs 2--3.
+\subsection{Pass/fail and repeats}
+A run passes if its failure rate is at most $10^{-3}$, no iterations were dropped, and p99 is within the endpoint SLO (250~ms for \texttt{/partner}, 1250~ms for \texttt{/park}, 2000~ms for \texttt{/pycpu}; thresholds fixed in the repository before the first run). Each cell is repeated three times and we report ``k/n'': passing repeats over valid repeats. A cell is called passing only if all valid repeats pass. With three repeats we do not compute confidence intervals; we give exact counts and min--max ranges, and we do not claim statistical significance. CPU cores used are estimated as rate times median CPU time per successful request.
+\subsection{Reproducibility}
+All code, the workflow and the raw artifacts are in the repository, and each result cites its workflow run. TODO add repository URL and an archive DOI (for example a Zenodo release) before submission.
+
+\section{Results}
+\textbf{Data.} The base campaign comprises 129 valid runs (workflow runs \#2--\#4). The follow-up on uvloop comprises 95 valid runs of 96 (run \#5). TODO add run \#6.
+\subsection{Waiting calls}
+\input{tables/park}
+Go and Java virtual threads passed 250 and 1000 calls in flight in every repeat (Table~\ref{tab:park}). The 200-thread Java pool returned no usable replies at either rate in any repeat, which is consistent with the pool being exhausted when the number of concurrent waits exceeds its size. We did not instrument the pool to confirm this.
+\subsection{Memory at 1000 requests per second}
+\input{tables/memory}
+All four candidates met the SLO in every repeat (Table~\ref{tab:memory}). Median memory ranged from 23~MiB (Go) to 217~MiB (Java virtual threads), roughly nine times higher, with CPU time per request in a narrow band of 0.26--0.40~ms. We did not tune the JVM heap, so the Java figure reflects default behaviour in a 512~MiB container, not a minimum.
+\subsection{GIL ceiling and forced-GIL control}
+\input{tables/gil}
+All three builds passed up to 30~RPS and none passed at 40~RPS (Table~\ref{tab:gil}). Under the GIL, CPU use stayed below one core at every passing rate, as expected, while the free-threaded build used about 1.3 cores at 30~RPS and about two at 40~RPS. Despite this, the free-threaded build did not pass at a higher rate. We caution that the 30~RPS rows are not strictly comparable: the GIL builds' 30 and 40~RPS runs executed on an AMD EPYC 9V74 runner and the free-threaded build's on an EPYC 7763; where all builds shared one CPU model (20~RPS) CPU per request agreed within about 3\%. The failures at 40~RPS were client timeouts with essentially no successful replies; we infer overload collapse from this but have no server-side evidence, because candidate logs were empty.
+\input{tables/frameworks}
+\subsection{Effect of uvloop and a thread pool}
+\input{tables/uvloop}
+Replacing the asyncio loop by uvloop did not change the ceiling in either framework (Table~\ref{tab:uvloop}). For FastAPI both variants passed up to 40~RPS with p99 near 23~ms, but this job ran on an Intel Xeon 6975P-C where the same work needs about 22~ms of CPU instead of about 36~ms; its ceiling was not reached. Django, on the AMD runner, passed at 20~RPS and failed at 30~RPS in both variants. TODO: waiting-call comparison for Django with and without uvloop, FastAPI at 50--80~RPS, and \texttt{/cpu} at 10--25~RPS from run \#6. Django with uvloop failed all waiting-call tests in run \#5, and we cannot attribute this to uvloop until the baseline exists.
+
+\section{Threats to Validity}\label{sec:threats}
+\textbf{Hardware variation.} GitHub does not let us choose the runner CPU. Jobs in this study ran on AMD EPYC 7763, AMD EPYC 9V74 and Intel Xeon 6975P-C hosts; we record the model per job and avoid cross-job comparisons where it differs. \textbf{Shared runners.} Co-tenant noise is possible. We measured a noise floor in an earlier workflow run (memory 0.9\%, CPU 3.2\%, p99 0.5\%); TODO re-extract these from the artifact. \textbf{Scope.} Three repeats and 3-minute measured phases; one synthetic workload; one runner family; the Java heap was not tuned; free-threaded results depend on the interpreter version and on libraries that do not re-enable the GIL. \textbf{Causal claims.} We report outcomes and resource use. We do not profile the interpreter, so explanations such as the GIL cap or pool exhaustion are inferences from rates and CPU use, not measurements of the mechanism.
+
+\section{Conclusion}
+TODO write after run \#6. Currently supported: (1) virtual threads and goroutines sustain 1000 concurrent one-second waits in 2 CPUs and 512~MiB, while a 200-thread pool does not; (2) memory at a fixed rate differs by about an order of magnitude between Go and Java virtual threads; (3) on this workload the free-threaded build spreads CPU use across cores without raising the passing ceiling; (4) neither uvloop nor the thread pool moved the Python ceiling in the cells where it was measured.
+
+\section*{Acknowledgment}
+TODO: This work used an AI assistant (Claude, Anthropic) to help write the benchmark tooling, analyse the data and draft the text. The authors reviewed the content and are responsible for it. Confirm the wording against the target publisher's AI-disclosure policy.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+\end{document}

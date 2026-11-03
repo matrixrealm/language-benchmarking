@@ -1,0 +1,15 @@
+\begin{table}[t]
+\caption{Effect of uvloop on \texttt{/pycpu} (GIL build, 4-thread pool). FastAPI and Django jobs ran on different runner CPUs, see Section~\ref{sec:threats}.}
+\label{tab:uvloop}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Candidate & 10 & 15 & 20 & 30 & 40 \\
+\midrule
+FastAPI, GIL, asyncio, 4 threads & -- & -- & -- & 3/3, 23\,ms, 0.67\,c & 3/3, 23\,ms, 0.89\,c \\
+FastAPI, GIL, uvloop, 4 threads & 3/3, 23\,ms, 0.22\,c & 3/3, 23\,ms, 0.33\,c & 3/3, 23\,ms, 0.44\,c & 3/3, 23\,ms, 0.66\,c & 3/3, 23\,ms, 0.88\,c \\
+Django, GIL, asyncio, 4 threads & -- & -- & -- & 0/3 (no replies) & 0/3 (no replies) \\
+Django, GIL, uvloop, 4 threads & 3/3, 37\,ms, 0.36\,c & 3/3, 39\,ms, 0.54\,c & 3/3, 39\,ms, 0.71\,c & 0/3 (no replies) & 0/3 (no replies) \\
+\bottomrule
+\end{tabular}
+\end{table}

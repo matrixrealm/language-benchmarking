@@ -3,10 +3,12 @@
 usage: python rerun/reports/build_report.py [--data rerun/reports/data] [--out rerun/reports/cloud1-report.html]
 data/<batch>/ holds the unzipped results-<batch> artifact (run directories with report.json and resources.csv).
 Self-contained output: inline CSS and SVG, no network."""
-import argparse, collections, csv, html, json, pathlib, statistics, time
+import argparse, collections, csv, html, json, pathlib, statistics, sys, time
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
+from loop_note import note as loop_note, tag as loop_tag
 REPO = 'https://github.com/matrixrealm/language-benchmarking/actions/runs/'
 RUNS = [  # (run, batches, github run id, duration)
     ('#1', 'noise (go partner 250, aiohttp-nogil pycpu 10: 5 runs each)', None, '1h 7m'),
@@ -20,9 +22,11 @@ COLORS = {'aiohttp-gil': '#2563eb', 'aiohttp-t-gilon': '#9333ea', 'aiohttp-nogil
           'django-gil': '#2563eb', 'django-t-gilon': '#9333ea', 'django-nogil': '#ea580c',
           'go': '#0d9488', 'java': '#dc2626', 'java-platform': '#a16207', 'python': '#2563eb', 'fastapi': '#9333ea'}
 
+CLOUD1 = ('aiohttp', 'fastapi', 'django', 'gil-ceiling', 'threads-cost')  # rerun2 batches (uv-*, concurrency) are reported separately
+
 def load(data):
     runs = []
-    for batch in sorted(p for p in data.iterdir() if p.is_dir()):
+    for batch in sorted(p for p in data.iterdir() if p.is_dir() and p.name in CLOUD1):
         for d in sorted(batch.iterdir()):
             rp = d / 'report.json'
             if not rp.exists(): continue
@@ -69,7 +73,7 @@ def row(cs, endpoint, rate, lang, cols):
     ok = passes(rs); n = len(rs)
     cls = 'p' if ok == n else 'f'
     cells_ = ''.join(f'<td>{fmt(stat(rs, f), nd)}</td>' for f, nd in cols)
-    return f'<tr><td>{endpoint} @ {rate} RPS</td><td>{html.escape(lang)}</td><td class="{cls}">{ok}/{n}</td>{cells_}</tr>'
+    return f'<tr><td>{endpoint} @ {rate} RPS</td><td>{html.escape(lang + loop_tag(lang))}</td><td class="{cls}">{ok}/{n}</td>{cells_}</tr>'
 
 def table(cs, keys, head, cols):
     body = ''.join(row(cs, e, r, l, cols) for e, r, l in keys)
@@ -101,7 +105,7 @@ def line_chart(cs, endpoint, langs, rates, ymax, title, ylabel='p99 ms'):
                 g.append(f'<path d="M{a-5:.1f},{b-5:.1f}l10,10m0,-10l-10,10" stroke="#dc2626" stroke-width="2.5"><title>{lang}: failed SLO, p99 {v:.0f} ms</title></path>')
             else:
                 g.append(f'<circle cx="{a:.1f}" cy="{b:.1f}" r="4" fill="{c}"><title>{lang}: p99 {v:.1f} ms</title></circle>')
-    leg = ''.join(f'<span><svg viewBox="0 0 26 10"><line x1="0" y1="5" x2="26" y2="5" stroke="{COLORS.get(l, "#555")}" stroke-width="3"/></svg>{html.escape(l)}</span>' for l in langs)
+    leg = ''.join(f'<span><svg viewBox="0 0 26 10"><line x1="0" y1="5" x2="26" y2="5" stroke="{COLORS.get(l, "#555")}" stroke-width="3"/></svg>{html.escape(l + loop_tag(l))}</span>' for l in langs)
     return f'<div class="card"><h3>{title}</h3><svg viewBox="0 0 {W} {H}">{"".join(g)}</svg><div class="leg">{leg}<span style="color:#dc2626">&times; failed the SLO (clipped to the top of the chart)</span></div></div>'
 
 def bar_chart(cs, endpoint, rate, langs, key, title, unit, nd=0):
@@ -112,13 +116,13 @@ def bar_chart(cs, endpoint, rate, langs, key, title, unit, nd=0):
         if s: items.append((lang, s, passes(rs) == len(rs)))
     if not items: return ''
     vmax = max(s[2] for _, s, _ in items) * 1.12 or 1
-    W, L, rowh = 520, 118, 30
+    W, L, rowh = 600, 200, 30
     H = rowh * len(items) + 12
     g = []
     for i, (lang, (m, lo, hi), ok) in enumerate(items):
         yy = 6 + i * rowh; bw = (W - L - 64) * m / vmax
         c = COLORS.get(lang, '#555') if ok else '#dc2626'
-        g.append(f'<text x="{L-8}" y="{yy+17}" text-anchor="end">{html.escape(lang)}</text><rect x="{L}" y="{yy+4}" width="{bw:.1f}" height="18" rx="3" fill="{c}"><title>{lang}: median {m:.{nd}f} {unit}, range {lo:.{nd}f}-{hi:.{nd}f}</title></rect>')
+        g.append(f'<text x="{L-8}" y="{yy+17}" text-anchor="end">{html.escape(lang + loop_tag(lang))}</text><rect x="{L}" y="{yy+4}" width="{bw:.1f}" height="18" rx="3" fill="{c}"><title>{lang}: median {m:.{nd}f} {unit}, range {lo:.{nd}f}-{hi:.{nd}f}</title></rect>')
         xr0, xr1 = L + (W - L - 64) * lo / vmax, L + (W - L - 64) * hi / vmax
         g.append(f'<line x1="{xr0:.1f}" y1="{yy+13}" x2="{xr1:.1f}" y2="{yy+13}" stroke="#1c1917" stroke-width="1.5"/>')
         g.append(f'<text class="m" x="{L+bw+6:.1f}" y="{yy+17}">{m:.{nd}f} {unit}</text>')
@@ -147,6 +151,7 @@ svg{width:100%;height:auto;display:block}svg text{fill:var(--fg);font-size:11px}
 a{color:inherit}
 </style></head><body>
 <header><h1>Cloud rerun report: Python GIL study and threads cost</h1><p class="n">__SUB__</p></header>
+<div class="note" style="max-width:1100px;margin:12px auto"><b>Note:</b> Python 3.14 made the free-threaded build officially supported (PEP 779), but it is still a separate build (3.14t) rather than the default. The standard python is still a GIL build.</div>
 <nav><div><a href="#overview">1 Overview</a><a href="#verdicts">2 Claims</a><a href="#a">3 GIL ceiling</a><a href="#b">4 Forced-GIL control</a><a href="#c">5 Waiting calls</a><a href="#d">6 Memory at 1000 RPS</a><a href="#collapse">7 The 40 RPS collapse</a><a href="#method">8 Method</a><a href="#raw">9 Raw runs</a></div></nav>
 <main>__BODY__</main></body></html>'''
 
@@ -168,10 +173,11 @@ def build(runs):
 <div class="kpi"><b>4</b><span>workflow runs, about 16 runner hours of job time</span></div></div>
 <div class="card"><table><tr><th>Workflow run</th><th>Batches</th><th>Duration</th></tr>{"".join(f'<tr><td>{link(r, rid)}</td><td>{html.escape(b)}</td><td>{d}</td></tr>' for r, b, rid, d in RUNS)}</table></div></section>''')
 
+    parts.append(loop_note('note'))
     a_gil30, a_no30 = med('pycpu', 30, 'aiohttp-gil', p99), med('pycpu', 30, 'aiohttp-nogil', p99)
     parts.append(f'''<section id="verdicts"><h2>2. What the data supports</h2>
 <div class="verdict"><h3><span class="tag no">A not supported</span>The GIL caps CPU-bound Python; the free-threaded build lifts the cap</h3>
-On <code>/pycpu</code> the GIL build, the free-threaded build and the forced-GIL control all passed at 10 to 30 RPS and all collapsed at 40 RPS. At 30 RPS the GIL build had the lower p99 ({a_gil30:.0f} ms against {a_no30:.0f} ms) and used less CPU per request. The GIL cap is visible in CPU use: the GIL builds never exceed 1.0 core, while the free-threaded build does spread across cores (about 1.27 at 30 RPS and 2.0 at 40 RPS). But it turned the extra cores into higher CPU cost per request, not into higher throughput: its ceiling was the same as the GIL build's, and at 40 RPS it did worse (0 successes against a handful).</div>
+On <code>/pycpu</code> the GIL build, the free-threaded build and the forced-GIL control all passed at 10 to 30 RPS and all collapsed at 40 RPS. The 30 RPS latency and CPU figures of the GIL builds ({a_gil30:.0f} ms p99) and the free-threaded build ({a_no30:.0f} ms) are not directly comparable: the GIL builds' 30 RPS runs (run #4) landed on a faster CPU model (AMD EPYC 9V74) than the free-threaded build's (run #3, EPYC 7763). Where all builds shared one CPU model (20 RPS) CPU per request was within about 3% (33.7, 34.8 and 34.8 ms). The GIL cap is visible in CPU use: the GIL builds never exceed 1.0 core, while the free-threaded build does spread across cores (about 1.27 at 30 RPS and 2.0 at 40 RPS). But it did not turn the extra cores into higher throughput: its ceiling was the same as the GIL build's, and at 40 RPS it did worse (0 successes against a handful).</div>
 <div class="verdict"><h3><span class="tag yes">B supported</span>Forced-GIL control</h3>
 The free-threaded build with the GIL forced back on (<code>-t-gilon</code>) matches the free-threaded build on memory and CPU cost, and matches the GIL build on latency. The extra memory and CPU belong to the build, not to the GIL setting.</div>
 <div class="verdict"><h3><span class="tag yes">C supported</span>Waiting calls: virtual threads and Go versus a 200-thread pool</h3>
@@ -214,7 +220,7 @@ Go {med('partner',1000,'go',mem):.0f} MiB, python (aiohttp) {med('partner',1000,
 {table(cs, keys_d, head3, cols_mem)}</section>''')
 
     fails = [r for r in runs if r.get('endpoint') == 'pycpu' and r.get('rate') == 40 and not r.get('control')]
-    frows = ''.join(f'<tr><td>{html.escape(r["language"])}</td><td>{r["successes"]}</td><td>{r["failure_rate"]:.4f}</td><td>{(p99(r) or 0):.0f}</td><td>{(r["cores"] or 0):.2f}</td><td>{r["oom_kills_delta"]}</td><td>{r["throttled_usec_delta"]/1e6:.2f}</td></tr>' for r in sorted(fails, key=lambda r: (r['language'], r['dir'])))
+    frows = ''.join(f'<tr><td>{html.escape(r["language"] + loop_tag(r["language"]))}</td><td>{r["successes"]}</td><td>{r["failure_rate"]:.4f}</td><td>{(p99(r) or 0):.0f}</td><td>{(r["cores"] or 0):.2f}</td><td>{r["oom_kills_delta"]}</td><td>{r["throttled_usec_delta"]/1e6:.2f}</td></tr>' for r in sorted(fails, key=lambda r: (r['language'], r['dir'])))
     parts.append(f'''<section id="collapse"><h2>7. The 40 RPS collapse</h2>
 <p class="n">At 40 RPS every runtime failed all three repeats. The 5-second client timeout is what p99 shows, so this is not a latency measurement. The GIL builds ran at the 1.0-core GIL cap and the free-threaded build at the full 2.0 cores. None was OOM-killed, and the cgroup throttled none by more than half a second. The GIL builds completed a handful of requests (2 to 57); the free-threaded build completed none.</p>
 <div class="card"><table><tr><th>Runtime</th><th>Successes</th><th>Failure rate</th><th>p99 ms</th><th>Cores used</th><th>OOM kills</th><th>Throttled s</th></tr>{frows}</table></div>
@@ -231,7 +237,7 @@ Go {med('partner',1000,'go',mem):.0f} MiB, python (aiohttp) {med('partner',1000,
 <tr><td>Limits</td><td>One runner per batch, so cross-batch comparisons carry VM-to-VM noise. The leak screen reports insufficient_window on the short runs. CPU ms per request is blank-equivalent when a run has almost no successes.</td></tr></table></div></section>''')
 
     allr = sorted((r for r in runs if not r.get('control')), key=lambda r: (r['endpoint'], r['language'], r['rate'], r['dir']))
-    rr = ''.join(f'<tr><td>{r["batch"]}</td><td>{r["endpoint"]}</td><td>{html.escape(r["language"])}</td><td>{r["rate"]}</td><td class="{"p" if r["slo_passed"] else "f"}">{"pass" if r["slo_passed"] else "FAIL"}</td><td>{r["container_memory_median_mib"]:.1f}</td><td>{(r["cpu_ms_per_success"] or 0):.2f}</td><td>{(p99(r) or 0):.1f}</td><td>{r["failure_rate"]:.4f}</td><td>{r["dropped_iterations"]}</td><td class="m">{r["dir"]}</td></tr>' for r in allr)
+    rr = ''.join(f'<tr><td>{r["batch"]}</td><td>{r["endpoint"]}</td><td>{html.escape(r["language"] + loop_tag(r["language"]))}</td><td>{r["rate"]}</td><td class="{"p" if r["slo_passed"] else "f"}">{"pass" if r["slo_passed"] else "FAIL"}</td><td>{r["container_memory_median_mib"]:.1f}</td><td>{(r["cpu_ms_per_success"] or 0):.2f}</td><td>{(p99(r) or 0):.1f}</td><td>{r["failure_rate"]:.4f}</td><td>{r["dropped_iterations"]}</td><td class="m">{r["dir"]}</td></tr>' for r in allr)
     parts.append(f'<section id="raw"><h2>9. Raw runs</h2><div class="card"><table><tr><th>Batch</th><th>Endpoint</th><th>Runtime</th><th>RPS</th><th>SLO</th><th>Mem MiB</th><th>CPU ms</th><th>p99 ms</th><th>Fail rate</th><th>Drops</th><th>Run directory</th></tr>{rr}</table></div></section>')
     return PAGE.replace('__BODY__', ''.join(parts)).replace('__SUB__', f'Generated {time.strftime("%Y-%m-%d %H:%M")} from the artifacts of GitHub Actions runs #2 to #4 (tag cloud1). Source: rerun/reports/build_report.py.')
 

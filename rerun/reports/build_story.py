@@ -8,6 +8,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import report_story, report_story_code
 from report_html import collect
 
+CLOUD1 = ('aiohttp', 'fastapi', 'django', 'gil-ceiling', 'threads-cost')  # rerun2 batches are not part of these pages
 HOST = 'free GitHub Actions runner: 4 vCPU AMD EPYC 7763, 16 GB'
 RUNNER_CMD = {'l1': 'python rerun/ci_batch.py threads-cost', 'l4': 'python rerun/ci_batch.py threads-cost',
               'l7': 'python rerun/ci_batch.py aiohttp\npython rerun/ci_batch.py fastapi\npython rerun/ci_batch.py django\npython rerun/ci_batch.py gil-ceiling'}
@@ -38,7 +39,7 @@ def main():
     a = p.parse_args()
     runs = []
     for d in sorted(pathlib.Path(a.data).iterdir()):
-        if d.is_dir(): runs += collect(d)
+        if d.is_dir() and d.name in CLOUD1: runs += collect(d)
     for r in runs: r['series'] = []
     data = {'runs': runs, 'host': HOST, 'criteria': json.loads((ROOT / 'criteria.json').read_text()), 'generated': time.strftime('%Y-%m-%d %H:%M')}
     report_story.PAGE = patch(report_story.PAGE, JS)

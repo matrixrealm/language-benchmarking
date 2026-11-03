@@ -1,0 +1,14 @@
+\begin{table}[t]
+\caption{Waiting calls (\texttt{/park}, each request held about 1\,s by the partner). Cells: repeats passing / valid repeats, median p99, CPU cores used (passing cells). SLO: p99 $\le$ 1250\,ms.}
+\label{tab:park}
+\centering\small
+\begin{tabular}{lcc}
+\toprule
+Candidate & 250 in flight & 1000 in flight \\
+\midrule
+Go & 3/3, 1002\,ms, 0.08\,c & 3/3, 1002\,ms, 0.27\,c \\
+Java (virtual threads) & 3/3, 1003\,ms, 0.10\,c & 3/3, 1112\,ms, 0.48\,c \\
+Java (200 platform threads) & 0/3 (no replies) & 0/3 (no replies) \\
+\bottomrule
+\end{tabular}
+\end{table}

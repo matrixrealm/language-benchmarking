@@ -1,0 +1,13 @@
+\begin{table}[t]
+\caption{FastAPI and Django on \texttt{/pycpu} with plain asyncio and a 4-thread pool (GIL build).}
+\label{tab:frameworks}
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+Candidate & 10 RPS & 15 RPS & 20 RPS \\
+\midrule
+FastAPI, GIL, asyncio, 4 threads & 3/3, 37\,ms, 0.36\,c & 3/3, 38\,ms, 0.54\,c & 3/3, 38\,ms, 0.71\,c \\
+Django, GIL, asyncio, 4 threads & 3/3, 41\,ms, 0.36\,c & 3/3, 38\,ms, 0.54\,c & 3/3, 38\,ms, 0.71\,c \\
+\bottomrule
+\end{tabular}
+\end{table}

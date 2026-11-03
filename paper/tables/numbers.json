@@ -1,0 +1,36 @@
+{
+ "hosts": {
+  "aiohttp": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "django": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "fastapi": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "gil-ceiling": [
+   "AMD EPYC 9V74 80-Core Processor"
+  ],
+  "threads-cost": [
+   "AMD EPYC 7763 64-Core Processor"
+  ]
+ },
+ "runs_base": 129,
+ "invalid_base": 0,
+ "hosts_uv": {
+  "uv-concurrency": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "uv-cpu": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "uv-django": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "uv-fastapi": [
+   "Intel(R) Xeon(R) 6975P-C"
+  ]
+ },
+ "runs_uv": 95
+}

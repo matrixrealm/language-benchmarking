@@ -1,0 +1,15 @@
+\begin{table}[t]
+\caption{One partner call per request at 1000\,RPS in a 512\,MiB container. Memory is the median over the measured phase, shown as median [min--max] across repeats.}
+\label{tab:memory}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Candidate & Pass & p99 (ms) & Memory (MiB) & CPU (ms/req) \\
+\midrule
+Go & 3/3 & 102 & 23 [23--23] & 0.26 \\
+Python aiohttp & 3/3 & 102 & 36 [36--36] & 0.32 \\
+FastAPI (uvloop, inline) & 3/3 & 102 & 55 [55--55] & 0.40 \\
+Java (virtual threads) & 3/3 & 112 & 217 [213--217] & 0.34 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,14 @@
+\begin{table}[t]
+\caption{Pure-Python CPU work (\texttt{/pycpu}), one event loop plus a 4-thread pool. Cells as in Table~\ref{tab:park}; SLO p99 $\le$ 2000\,ms.}
+\label{tab:gil}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Candidate & 10 RPS & 15 RPS & 20 RPS & 30 RPS & 40 RPS \\
+\midrule
+aiohttp, GIL & 3/3, 35\,ms, 0.34\,c & 3/3, 35\,ms, 0.51\,c & 3/3, 35\,ms, 0.67\,c & 3/3, 31\,ms, 0.86\,c & 0/3 (no replies) \\
+aiohttp, 3.14t with GIL forced on & 3/3, 35\,ms, 0.35\,c & 3/3, 36\,ms, 0.53\,c & 3/3, 35\,ms, 0.70\,c & 3/3, 33\,ms, 0.87\,c & 0/3 (no replies) \\
+aiohttp, 3.14t GIL off & 3/3, 35\,ms, 0.35\,c & 3/3, 36\,ms, 0.52\,c & 3/3, 36\,ms, 0.70\,c & 3/3, 46\,ms, 1.26\,c & 0/3 (no replies) \\
+\bottomrule
+\end{tabular}
+\end{table}
