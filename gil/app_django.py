@@ -60,3 +60,8 @@ async def handle(request, path):
 
 urlpatterns = [re_path(r'^(?P<path>.*)$', handle)]
 application = get_asgi_application()
+if os.getenv('DJANGO_NO_SIGNALS'):
+    # Diagnostic switch: Django's default request_started/request_finished receivers are sync functions, so every request
+    # makes asgiref start a thread for it. Removing them shows the cost of that path. Off by default.
+    from django.core import signals
+    for _signal in (signals.request_started, signals.request_finished): _signal.receivers = []; _signal.sender_receivers_cache.clear()

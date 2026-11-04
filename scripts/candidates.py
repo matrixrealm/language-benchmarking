@@ -26,6 +26,8 @@ CANDIDATES = {
     'fastapi-gil-uv': {'dir': 'gil', 'image': 'lb-gil-uv', 'env': {'APP': 'fastapi', 'THREADS': '4'}},
     'django-gil-uv':  {'dir': 'gil', 'image': 'lb-gil-uv', 'env': {'APP': 'django', 'THREADS': '4'}},
     'django-nogil':   {'dir': 'gil', 'image': 'lb-nogil', 'env': {'APP': 'django', 'PYTHON_GIL': '0'}},
+    # rerun3: django-gil with Django's request_started/request_finished receivers removed (see RERUN2_RESULTS.md, thread per request)
+    'django-gil-nosig': {'dir': 'gil', 'image': 'lb-gil', 'env': {'APP': 'django', 'DJANGO_NO_SIGNALS': '1'}},
 }
 # Named comparison sets for matrix.py --group: (candidates, default endpoints)
 GROUPS = {
@@ -38,7 +40,7 @@ GROUPS = {
     'uv':     (['fastapi-gil-uv', 'django-gil-uv', 'fastapi-gil', 'django-gil', 'fastapi', 'django'], ['pycpu', 'cpu', 'partner', 'park']),
     'concurrency': (['go', 'java', 'java-platform', 'java-platform-2000', 'fastapi-gil', 'django-gil'], ['park', 'partner']),
 }
-PYTHON_FAMILY = {'python', 'fastapi', 'fastapi-2w', 'django', 'django-2w'} | {c for c in CANDIDATES if c.endswith(('-gil', '-nogil', '-gilon', '-gil-uv'))}
+PYTHON_FAMILY = {'python', 'fastapi', 'fastapi-2w', 'django', 'django-2w'} | {c for c in CANDIDATES if c.endswith(('-gil', '-nogil', '-gilon', '-gil-uv', '-nosig'))}
 
 def image(name): return CANDIDATES[name].get('image', 'lb-' + CANDIDATES[name]['dir'])
 def build_dirs(): return sorted({c['dir'] for c in CANDIDATES.values()})
