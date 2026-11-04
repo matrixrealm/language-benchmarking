@@ -1,0 +1,13 @@
+\begin{table}[t]
+\caption{FastAPI on \texttt{/pycpu} above 40\,RPS (AMD EPYC 7763 runner, about 36\,ms of CPU per request).}
+\label{tab:pycpuhigh}
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+Candidate & 50 RPS & 60 RPS & 80 RPS \\
+\midrule
+FastAPI, GIL, asyncio, 4 threads & 0/3 (no replies) & 0/3 (no replies) & 0/3 (no replies) \\
+FastAPI, GIL, uvloop, 4 threads & 0/3 (no replies) & 0/3 (no replies) & 0/3 (no replies) \\
+\bottomrule
+\end{tabular}
+\end{table}

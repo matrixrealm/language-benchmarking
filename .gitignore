@@ -6,3 +6,5 @@ __pycache__/
 
 # raw artifacts for rerun/reports (re-download from the GitHub Actions runs)
 rerun/reports/data/
+
+rerun2/reports/data/

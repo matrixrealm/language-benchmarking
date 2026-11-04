@@ -1,0 +1,14 @@
+\begin{table}[t]
+\caption{Waiting-call sensitivity runs on an Intel Xeon 6973P-C runner. Columns: \texttt{/partner} at 1000\,RPS, then \texttt{/park} with 250 and 1000 in flight; last column is median memory in MiB for the three. A cell without replies means the candidate returned no usable answers.}
+\label{tab:waiting2}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Candidate & partner 1000 & park 250 & park 1000 & Memory (MiB) \\
+\midrule
+FastAPI, GIL, asyncio, 4 threads & 3/3, 102\,ms, 0.33\,c & 3/3, 1003\,ms, 0.10\,c & 3/3, 1003\,ms, 0.37\,c & 71 / 75 / 113 \\
+Java (200 platform threads) & 3/3, 112\,ms, 0.19\,c & -- & -- & 242 / -- / -- \\
+Java (2000 platform threads) & -- & 3/3, 1016\,ms, 0.09\,c & 0/2 (no replies) & -- / 469 / 501 \\
+\bottomrule
+\end{tabular}
+\end{table}

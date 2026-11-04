@@ -1,0 +1,15 @@
+\begin{table}[t]
+\caption{Hashing (\texttt{/cpu}, releases the GIL), uvloop in all rows. The FastAPI rows ran on an AMD EPYC 9V74 runner and the Django rows on an EPYC 7763 runner, so compare within a framework only. SLO: p99 $\le$ 2000\,ms.}
+\label{tab:hashing}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Candidate & 10 RPS & 15 RPS & 20 RPS & 25 RPS \\
+\midrule
+FastAPI, inline on the event loop & 3/3, 59\,ms, 0.59\,c & 3/3, 61\,ms, 0.88\,c & 0/3 (no replies) & 0/3 (no replies) \\
+FastAPI, 4-thread pool & 3/3, 60\,ms, 0.59\,c & 3/3, 63\,ms, 0.89\,c & 3/3, 65\,ms, 1.20\,c & 3/3, 65\,ms, 1.54\,c \\
+Django, inline on the event loop & 3/3, 68\,ms, 0.68\,c & 0/3, 2639\,ms & 0/3 (no replies) & 0/3 (no replies) \\
+Django, 4-thread pool & 3/3, 71\,ms, 0.68\,c & 3/3, 71\,ms, 1.02\,c & 3/3, 73\,ms, 1.38\,c & 3/3, 74\,ms, 1.74\,c \\
+\bottomrule
+\end{tabular}
+\end{table}

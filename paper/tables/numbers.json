@@ -32,5 +32,21 @@
    "Intel(R) Xeon(R) 6975P-C"
   ]
  },
- "runs_uv": 95
+ "runs_uv": 95,
+ "hosts_run6": {
+  "concurrency": [
+   "Intel(R) Xeon(R) 6973P-C"
+  ],
+  "uv-cpu-low-django": [
+   "AMD EPYC 7763 64-Core Processor"
+  ],
+  "uv-cpu-low-fastapi": [
+   "AMD EPYC 9V74 80-Core Processor"
+  ],
+  "uv-fastapi-high": [
+   "AMD EPYC 7763 64-Core Processor"
+  ]
+ },
+ "runs_run6": 96,
+ "invalid_run6": 8
 }

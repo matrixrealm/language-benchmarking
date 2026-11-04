@@ -53,3 +53,26 @@ So the thread pool is clearly better than running inline, but how much better ne
 3. **Hashing at lower rates**: `cpu` at 10, 15, 20, 25 RPS for the pooled and inline builds.
 4. **CPU-model control**: GitHub does not let us choose the runner CPU. Either record the model next to every cell (the report does), or repeat any cross-framework claim on a second run.
 5. **Why Django fails at 250 in flight**: needs `candidate.log` to be non-empty (capture stderr) or a local reproduction.
+
+---
+
+# Run #6 follow-up (workflow run 41553969798, 96 runs, commit 5183212)
+
+Raw data: `rerun2/reports/data/` (gitignored). Runner CPUs per job: concurrency = Intel Xeon 6973P-C; uv-cpu-low-fastapi = AMD EPYC 9V74; uv-cpu-low-django and uv-fastapi-high = AMD EPYC 7763. Compare only within a job.
+
+## Hashing (`/cpu`): thread pool vs inline, uvloop in both
+| Candidate | 10 | 15 | 20 | 25 | CPU ms/req |
+|---|---|---|---|---|---|
+| FastAPI inline (AMD 9V74) | 3/3 | 3/3 | 0/3 (100% fail) | 0/3 | 58 to 59 |
+| FastAPI 4-thread pool (AMD 9V74) | 3/3 | 3/3 | 3/3 | 3/3 | 59 to 62 |
+| Django inline (AMD 7763) | 3/3 | 0/3 (p99 2638 ms) | 0/3 | 0/3 | 68 |
+| Django 4-thread pool (AMD 7763) | 3/3 | 3/3 | 3/3 | 3/3 | 68 to 70 |
+Inline ceiling is about 15 RPS (one core / about 60 ms); the pool passes every rate up to 25 and, with run #5 (failures at 30), has its ceiling between 25 and 30 RPS, consistent with two cores. The upper bound is not tighter than that.
+
+## FastAPI `pycpu` ceiling (AMD 7763)
+Both `fastapi-gil` (asyncio) and `fastapi-gil-uv` failed every request at 50, 60 and 80 RPS. With about 36 ms per request on this CPU, 50 RPS needs about 1.8 cores, well over the GIL's one core. Run #5 passed up to 40 RPS on an Intel runner (22 ms per request, 0.88 core). The data fit a ceiling of about one core divided by CPU cost per request, but the two sides were measured on different CPUs, so the exact FastAPI ceiling on one CPU model is still not bracketed.
+
+## Waiting calls
+- FastAPI (asyncio and uvloop, Intel 6973P-C): park 250 and 1000 and partner 1000 all 3/3; memory 70 to 113 MiB.
+- Java with a 2000-thread pool: park 250 passes 3/3 (468 MiB); park 1000 fails (no replies, 501 MiB, near the 512 MiB cap). Java with 200 threads passes partner 1000 (242 MiB).
+- **Django (gil image) fails waiting calls with plain asyncio too**: park 250 0/3 (31% failures, 401 MiB), partner 300 0/2, partner 1000 and park 1000 invalid in all repeats. So uvloop is not the cause. The laptop pilot shows the same pattern (django-gil passes at 100 RPS, fails at 300, memory about 440 MiB), while the standard `django` candidate passed partner 500 there. The cause is unexplained and the code of `gil/app_django.py` matches the FastAPI client logic, so **do not report Django's waiting-call performance until it is understood.**

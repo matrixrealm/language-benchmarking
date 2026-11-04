@@ -11,7 +11,10 @@ NAME = {'go': 'Go', 'java': 'Java (virtual threads)', 'java-platform': 'Java (20
         'fastapi': 'FastAPI (uvloop, inline)', 'django': 'Django (uvloop, inline)',
         'aiohttp-gil': 'aiohttp, GIL', 'aiohttp-t-gilon': 'aiohttp, 3.14t with GIL forced on', 'aiohttp-nogil': 'aiohttp, 3.14t GIL off',
         'fastapi-gil': 'FastAPI, GIL, asyncio, 4 threads', 'fastapi-gil-uv': 'FastAPI, GIL, uvloop, 4 threads',
-        'django-gil': 'Django, GIL, asyncio, 4 threads', 'django-gil-uv': 'Django, GIL, uvloop, 4 threads'}
+        'django-gil': 'Django, GIL, asyncio, 4 threads', 'django-gil-uv': 'Django, GIL, uvloop, 4 threads',
+        'java-platform-2000': 'Java (2000 platform threads)'}
+INLINE = {'fastapi': 'FastAPI, inline on the event loop', 'fastapi-gil-uv': 'FastAPI, 4-thread pool',
+          'django': 'Django, inline on the event loop', 'django-gil-uv': 'Django, 4-thread pool'}
 
 def load(data, batches):
     cells, hosts = {}, {}
@@ -51,7 +54,8 @@ def table(name, caption, label, head, rows):
         + ' & '.join(head) + " \\\\\n\\midrule\n" + body + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n", encoding='utf-8')
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--data', default=str(ROOT / 'rerun' / 'reports' / 'data')); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument('--data', default=str(ROOT / 'rerun' / 'reports' / 'data'))
+    ap.add_argument('--data2', default=str(ROOT / 'rerun2' / 'reports' / 'data')); a = ap.parse_args()
     OUT.mkdir(exist_ok=True)
     cells, hosts = load(a.data, BASE)
     S = {k: stat(v) for k, v in cells.items()}
@@ -89,6 +93,31 @@ def main():
     rows = [[NAME[l]] + [cell_txt(ug(l, 'pycpu', r), r) for r in present] for l in ('fastapi-gil', 'fastapi-gil-uv', 'django-gil', 'django-gil-uv') if any(ug(l, 'pycpu', r) for r in present)]
     table('uvloop', 'Effect of uvloop on \\texttt{/pycpu} (GIL build, 4-thread pool). FastAPI and Django jobs ran on different runner CPUs, see Section~\\ref{sec:threats}.',
           'tab:uvloop', ['Candidate'] + [f'{r}' for r in present], rows)
+    # run 6 (rerun2/reports/data)
+    d2 = pathlib.Path(a.data2)
+    if d2.is_dir():
+        c2, h2 = load(a.data2, tuple(p.name for p in d2.iterdir() if p.is_dir()))
+        S2 = {k: stat(v) for k, v in c2.items()}
+        nums['hosts_run6'] = {k: sorted(v) for k, v in h2.items()}
+        nums['runs_run6'] = sum(len(c['runs']) + c['invalid'] for c in c2.values())
+        nums['invalid_run6'] = sum(c['invalid'] for c in c2.values())
+        g2 = lambda l, e, r: S2.get((l, e, r))
+        rates = (10, 15, 20, 25)
+        rows = [[INLINE[l]] + [cell_txt(g2(l, 'cpu', r), r) for r in rates] for l in ('fastapi', 'fastapi-gil-uv', 'django', 'django-gil-uv')]
+        table('hashing', 'Hashing (\\texttt{/cpu}, releases the GIL), uvloop in all rows. The FastAPI rows ran on an AMD EPYC 9V74 runner and the Django rows on an EPYC 7763 runner, so compare within a framework only. SLO: p99 $\\le$ 2000\\,ms.',
+              'tab:hashing', ['Candidate'] + [f'{r} RPS' for r in rates], rows)
+        rates = (50, 60, 80)
+        rows = [[NAME[l]] + [cell_txt(g2(l, 'pycpu', r), r) for r in rates] for l in ('fastapi-gil', 'fastapi-gil-uv')]
+        table('pycpuhigh', 'FastAPI on \\texttt{/pycpu} above 40\\,RPS (AMD EPYC 7763 runner, about 36\\,ms of CPU per request).', 'tab:pycpuhigh',
+              ['Candidate'] + [f'{r} RPS' for r in rates], rows)
+        rows = [[NAME[l], cell_txt(g2(l, 'partner', 1000), 1000), cell_txt(g2(l, 'park', 250), 250), cell_txt(g2(l, 'park', 1000), 1000)]
+                for l in ('fastapi-gil', 'java-platform', 'java-platform-2000') if any(g2(l, e, r) for e, r in (('partner', 1000), ('park', 250), ('park', 1000)))]
+        # java-platform only has partner 1000 in this batch
+        def mem(l, e, r):
+            s_ = g2(l, e, r); return f"{s_['mem']:.0f}" if s_ and s_['mem'] else '--'
+        rows = [r_ + [' / '.join(mem(l, e, rt) for e, rt in (('partner', 1000), ('park', 250), ('park', 1000)))] for r_, l in zip(rows, ('fastapi-gil', 'java-platform', 'java-platform-2000'))]
+        table('waiting2', 'Waiting-call sensitivity runs on an Intel Xeon 6973P-C runner. Columns: \\texttt{/partner} at 1000\\,RPS, then \\texttt{/park} with 250 and 1000 in flight; last column is median memory in MiB for the three. A cell without replies means the candidate returned no usable answers.',
+              'tab:waiting2', ['Candidate', 'partner 1000', 'park 250', 'park 1000', 'Memory (MiB)'], rows)
     (OUT / 'numbers.json').write_text(json.dumps(nums, indent=1, default=str), encoding='utf-8')
     for t in sorted(OUT.glob('*.tex')): print(t.name)
     print(json.dumps(nums, indent=1)[:900])
