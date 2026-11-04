@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       batches:
-        description: 'JSON list of batches: aiohttp, fastapi, django, gil-ceiling, threads-cost, concurrency, uv-fastapi, uv-django, uv-cpu, uv-concurrency, uv-fastapi-high, uv-cpu-low-fastapi, uv-cpu-low-django, optional, noise'
+        description: 'JSON list of batches: aiohttp, fastapi, django, gil-ceiling, threads-cost, concurrency, uv-fastapi, uv-django, uv-cpu, uv-concurrency, uv-fastapi-high, uv-cpu-low-fastapi, uv-cpu-low-django, optional, noise, fastapi-bracket, rep-park-virtual, rep-park-platform, rep-memory'
         default: '["aiohttp","fastapi","django","threads-cost"]'
 
 jobs:

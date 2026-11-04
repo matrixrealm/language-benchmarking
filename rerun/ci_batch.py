@@ -40,18 +40,25 @@ BATCHES = {
     'uv-fastapi-high': [['--candidates', 'fastapi-gil-uv,fastapi-gil', '--endpoints', 'pycpu', '--rates', '50,60,80']],
     'uv-cpu-low-fastapi': [['--candidates', 'fastapi,fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '10,15,20,25']],
     'uv-cpu-low-django': [['--candidates', 'django,django-gil-uv', '--endpoints', 'cpu', '--rates', '10,15,20,25']],
+    # rerun3: FastAPI ceiling on ONE runner CPU (both builds, rates from passing to failing in one job)
+    'fastapi-bracket': [['--candidates', 'fastapi-gil-uv,fastapi-gil', '--endpoints', 'pycpu', '--rates', '30,40,50,60']],
+    # rerun3: 10 repeats of the headline cells so that intervals can be reported (REPEATS below)
+    'rep-park-virtual': [['--candidates', 'go,java', '--endpoints', 'park', '--rates', '250,1000']],
+    'rep-park-platform': [['--candidates', 'java-platform,java-platform-2000', '--endpoints', 'park', '--rates', '250,1000']],
+    'rep-memory': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'partner', '--rates', '1000']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
     # optional E and F
     'optional': [['--candidates', 'go,java,python,fastapi,django', '--endpoints', 'memobj', '--rates', '10,20'],
                  ['--candidates', 'aiohttp-gil,aiohttp-nogil', '--endpoints', 'cpu', '--rates', '30,40']],
 }
+REPEATS = {'rep-park-virtual': '10', 'rep-park-platform': '10', 'rep-memory': '10'}  # default 3
 BASE = ['--pass', 'full', '--group', 'gil', '--repeats', '3', '--fast', '--tag', TAG, '--cpuset', '0,1', '--helper-cpuset', '2,3']
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1] not in BATCHES: sys.exit(f'usage: ci_batch.py {{{"|".join(BATCHES)}}} [matrix.py args]')
     status = 0
     for args in BATCHES[sys.argv[1]]:
-        status |= subprocess.run([sys.executable, str(ROOT / 'scripts' / 'matrix.py'), *BASE, *args, *sys.argv[2:]]).returncode
+        status |= subprocess.run([sys.executable, str(ROOT / 'scripts' / 'matrix.py'), *BASE, *(['--repeats', REPEATS[sys.argv[1]]] if sys.argv[1] in REPEATS else []), *args, *sys.argv[2:]]).returncode
     sys.exit(status)
 
 if __name__ == '__main__': main()
