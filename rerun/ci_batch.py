@@ -47,8 +47,8 @@ BATCHES = {
     'rep-park-platform': [['--candidates', 'java-platform,java-platform-2000', '--endpoints', 'park', '--rates', '250,1000']],
     'rep-memory': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'partner', '--rates', '1000']],
     # rerun3: does removing Django's per-request signal receivers (one thread per request) fix the waiting-call failures?
-    'django-signals': [['--candidates', 'django-gil,django-gil-nosig', '--endpoints', 'park', '--rates', '250,1000'],
-                       ['--candidates', 'django-gil,django-gil-nosig', '--endpoints', 'partner', '--rates', '300,1000']],
+    'django-signals': [['--candidates', 'django-gil,django-nosig-gil', '--endpoints', 'park', '--rates', '250,1000'],
+                       ['--candidates', 'django-gil,django-nosig-gil', '--endpoints', 'partner', '--rates', '300,1000']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
     # optional E and F
     'optional': [['--candidates', 'go,java,python,fastapi,django', '--endpoints', 'memobj', '--rates', '10,20'],
