@@ -1,0 +1,15 @@
+\begin{table}[t]
+\caption{One partner call per request at 1000\,RPS, 10 repeats per candidate. Memory and p99 are median [min--max] over repeats.}
+\label{tab:repeatsmem}
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+Candidate & Pass [95\% CI] & Memory (MiB) & p99 (ms) \\
+\midrule
+Go & 10/10 [69--100\%] & 24 [23--24] & 102 [102--102] \\
+Python aiohttp & 10/10 [69--100\%] & 36 [36--36] & 102 [102--102] \\
+FastAPI (uvloop, inline) & 10/10 [69--100\%] & 55 [55--55] & 102 [102--102] \\
+Java (virtual threads) & 10/10 [69--100\%] & 213 [204--217] & 111 [110--111] \\
+\bottomrule
+\end{tabular}
+\end{table}

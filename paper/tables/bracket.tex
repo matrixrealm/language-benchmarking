@@ -1,0 +1,13 @@
+\begin{table}[t]
+\caption{FastAPI on \texttt{/pycpu} bracketed on a single runner CPU (Intel Xeon Platinum 8573C, both builds in one job). About 29\,ms of CPU per request, so one core allows about 34 RPS.}
+\label{tab:bracket}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Candidate & 30 RPS & 40 RPS & 50 RPS & 60 RPS \\
+\midrule
+FastAPI, GIL, asyncio, 4 threads & 3/3, 30\,ms, 0.86\,c & 0/3 (no replies) & 0/3 (no replies) & 0/3 (no replies) \\
+FastAPI, GIL, uvloop, 4 threads & 3/3, 30\,ms, 0.85\,c & 0/3 (no replies) & 0/3 (no replies) & 0/3 (no replies) \\
+\bottomrule
+\end{tabular}
+\end{table}

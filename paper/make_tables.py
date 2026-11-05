@@ -39,6 +39,20 @@ def stat(c):
             'memlo': min(mem) if mem else None, 'memhi': max(mem) if mem else None,
             'fail': st.median(r['failure_rate'] for r in R), 'invalid': c['invalid']}
 
+def cp_interval(k, n, alpha=0.05):
+    # Clopper-Pearson exact interval for k successes in n trials, by bisection on the binomial tail
+    from math import comb
+    def tail_ge(p, k): return sum(comb(n, i) * p**i * (1 - p)**(n - i) for i in range(k, n + 1))
+    def bisect(f, lo=0.0, hi=1.0):
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if f(mid): hi = mid
+            else: lo = mid
+        return (lo + hi) / 2
+    lo = 0.0 if k == 0 else bisect(lambda p: tail_ge(p, k) >= alpha / 2)
+    hi = 1.0 if k == n else bisect(lambda p: 1 - tail_ge(p, k + 1) <= alpha / 2)
+    return lo, hi
+
 def cell_txt(s, rate):
     if not s: return '--'
     if s['k'] == 0 and (s['p99'] >= 5000 or s['p99'] <= 0 or s['fail'] >= 0.99): return f"{s['k']}/{s['n']} (no replies)"
@@ -55,7 +69,8 @@ def table(name, caption, label, head, rows):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--data', default=str(ROOT / 'rerun' / 'reports' / 'data'))
-    ap.add_argument('--data2', default=str(ROOT / 'rerun2' / 'reports' / 'data')); a = ap.parse_args()
+    ap.add_argument('--data2', default=str(ROOT / 'rerun2' / 'reports' / 'data'))
+    ap.add_argument('--data3', default=str(ROOT / 'rerun3' / 'reports' / 'data')); a = ap.parse_args()
     OUT.mkdir(exist_ok=True)
     cells, hosts = load(a.data, BASE)
     S = {k: stat(v) for k, v in cells.items()}
@@ -118,6 +133,34 @@ def main():
         rows = [r_ + [' / '.join(mem(l, e, rt) for e, rt in (('partner', 1000), ('park', 250), ('park', 1000)))] for r_, l in zip(rows, ('fastapi-gil', 'java-platform', 'java-platform-2000'))]
         table('waiting2', 'Waiting-call sensitivity runs on an Intel Xeon 6973P-C runner. Columns: \\texttt{/partner} at 1000\\,RPS, then \\texttt{/park} with 250 and 1000 in flight; last column is median memory in MiB for the three. A cell without replies means the candidate returned no usable answers.',
               'tab:waiting2', ['Candidate', 'partner 1000', 'park 250', 'park 1000', 'Memory (MiB)'], rows)
+    # run 7 (rerun3/reports/data): FastAPI bracket on one CPU model and 10-repeat headline cells
+    d3 = pathlib.Path(a.data3)
+    if d3.is_dir():
+        c3, h3 = load(a.data3, tuple(p.name for p in d3.iterdir() if p.is_dir()))
+        S3 = {k: stat(v) for k, v in c3.items()}
+        nums['hosts_run7'] = {k: sorted(v) for k, v in h3.items()}
+        g3 = lambda l, e, r: S3.get((l, e, r))
+        rates = (30, 40, 50, 60)
+        rows = [[NAME[l]] + [cell_txt(g3(l, 'pycpu', r), r) for r in rates] for l in ('fastapi-gil', 'fastapi-gil-uv')]
+        table('bracket', 'FastAPI on \\texttt{/pycpu} bracketed on a single runner CPU (Intel Xeon Platinum 8573C, both builds in one job). About 29\\,ms of CPU per request, so one core allows about 34 RPS.', 'tab:bracket',
+              ['Candidate'] + [f'{r} RPS' for r in rates], rows)
+        def ci_txt(s_):
+            lo, hi = cp_interval(s_['k'], s_['n']); return f"{s_['k']}/{s_['n']} [{lo*100:.0f}--{hi*100:.0f}\\%]"
+        def rng(v, lo, hi, d=0): return f"{v:.{d}f} [{lo:.{d}f}--{hi:.{d}f}]" if v is not None else '--'
+        rows = []
+        for l, e, r in (('go', 'park', 250), ('go', 'park', 1000), ('java', 'park', 250), ('java', 'park', 1000), ('java-platform', 'park', 250), ('java-platform', 'park', 1000),
+                        ('java-platform-2000', 'park', 250), ('java-platform-2000', 'park', 1000)):
+            s_ = g3(l, e, r)
+            if not s_: continue
+            rows.append([NAME[l], str(r), ci_txt(s_), ('--' if s_['k'] == 0 else rng(s_['p99'], s_['p99lo'], s_['p99hi'])), rng(s_['mem'], s_['memlo'], s_['memhi'])])
+        table('repeats_park', 'Waiting calls with 10 repeats per cell (invalid repeats are excluded from n). Pass column: passing/valid repeats with the exact 95\\% Clopper--Pearson interval for the pass probability. p99 and memory are median [min--max].',
+              'tab:repeatspark', ['Candidate', 'In flight', 'Pass [95\% CI]', 'p99 (ms)', 'Memory (MiB)'], rows)
+        rows = []
+        for l in ('go', 'python', 'fastapi', 'java'):
+            s_ = g3(l, 'partner', 1000)
+            if s_: rows.append([NAME[l], ci_txt(s_), rng(s_['mem'], s_['memlo'], s_['memhi']), rng(s_['p99'], s_['p99lo'], s_['p99hi'])])
+        table('repeats_memory', 'One partner call per request at 1000\\,RPS, 10 repeats per candidate. Memory and p99 are median [min--max] over repeats.',
+              'tab:repeatsmem', ['Candidate', 'Pass [95\% CI]', 'Memory (MiB)', 'p99 (ms)'], rows)
     (OUT / 'numbers.json').write_text(json.dumps(nums, indent=1, default=str), encoding='utf-8')
     for t in sorted(OUT.glob('*.tex')): print(t.name)
     print(json.dumps(nums, indent=1)[:900])

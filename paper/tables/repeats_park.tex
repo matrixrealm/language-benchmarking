@@ -1,0 +1,19 @@
+\begin{table}[t]
+\caption{Waiting calls with 10 repeats per cell (invalid repeats are excluded from n). Pass column: passing/valid repeats with the exact 95\% Clopper--Pearson interval for the pass probability. p99 and memory are median [min--max].}
+\label{tab:repeatspark}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Candidate & In flight & Pass [95\% CI] & p99 (ms) & Memory (MiB) \\
+\midrule
+Go & 250 & 10/10 [69--100\%] & 1003 [1003--1003] & 35 [33--35] \\
+Go & 1000 & 10/10 [69--100\%] & 1002 [1002--1002] & 116 [116--116] \\
+Java (virtual threads) & 250 & 10/10 [69--100\%] & 1005 [1004--1006] & 215 [212--218] \\
+Java (virtual threads) & 1000 & 10/10 [69--100\%] & 1137 [1083--1176] & 229 [225--232] \\
+Java (200 platform threads) & 250 & 0/10 [0--31\%] & -- & 247 [244--266] \\
+Java (200 platform threads) & 1000 & 0/10 [0--31\%] & -- & 322 [293--356] \\
+Java (2000 platform threads) & 250 & 10/10 [69--100\%] & 1013 [1011--1016] & 481 [459--486] \\
+Java (2000 platform threads) & 1000 & 0/6 [0--46\%] & -- & 506 [495--510] \\
+\bottomrule
+\end{tabular}
+\end{table}
