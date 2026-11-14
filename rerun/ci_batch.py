@@ -52,6 +52,7 @@ BATCHES = {
     # final hardening for the articles: each batch keeps its comparison on one runner CPU
     'final-fastapi-gil': [['--candidates', 'fastapi-gil,fastapi-nogil,fastapi-t-gilon', '--endpoints', 'pycpu', '--rates', '20,30,40']],
     'final-hashing': [['--candidates', 'fastapi,fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '20,25,30,35']],
+    'final-hashing-high': [['--candidates', 'fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '35,40,45,50']],
     'final-fiveway': [['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'park', '--rates', '250,1000'],
                       ['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'partner', '--rates', '1000']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
