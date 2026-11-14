@@ -49,6 +49,11 @@ BATCHES = {
     # rerun3: does removing Django's per-request signal receivers (one thread per request) fix the waiting-call failures?
     'django-signals': [['--candidates', 'django-gil,django-nosig-gil', '--endpoints', 'park', '--rates', '250,1000'],
                        ['--candidates', 'django-gil,django-nosig-gil', '--endpoints', 'partner', '--rates', '300,1000']],
+    # final hardening for the articles: each batch keeps its comparison on one runner CPU
+    'final-fastapi-gil': [['--candidates', 'fastapi-gil,fastapi-nogil,fastapi-t-gilon', '--endpoints', 'pycpu', '--rates', '20,30,40']],
+    'final-hashing': [['--candidates', 'fastapi,fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '20,25,30,35']],
+    'final-fiveway': [['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'park', '--rates', '250,1000'],
+                      ['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'partner', '--rates', '1000']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
     # optional E and F
     'optional': [['--candidates', 'go,java,python,fastapi,django', '--endpoints', 'memobj', '--rates', '10,20'],
