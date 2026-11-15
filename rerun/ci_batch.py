@@ -53,6 +53,11 @@ BATCHES = {
     'final-fastapi-gil': [['--candidates', 'fastapi-gil,fastapi-nogil,fastapi-t-gilon', '--endpoints', 'pycpu', '--rates', '20,30,40']],
     'final-hashing': [['--candidates', 'fastapi,fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '20,25,30,35']],
     'final-hashing-high': [['--candidates', 'fastapi-gil-uv', '--endpoints', 'cpu', '--rates', '35,40,45,50']],
+    # all-types coverage on cloud: one job per endpoint, 3 repeats. Django left out until its waiting-call anomaly is understood.
+    'all-fanout': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'fanout', '--rates', '100,300']],
+    'all-payload': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'payload', '--rates', '500,1000']],
+    'all-membuf': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'membuf', '--rates', '10,40']],
+    'all-memobj': [['--candidates', 'go,java,python,fastapi', '--endpoints', 'memobj', '--rates', '10,20,40']],
     'final-fiveway': [['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'park', '--rates', '250,1000'],
                       ['--candidates', 'go,java,java-platform,fastapi-gil-uv', '--endpoints', 'partner', '--rates', '1000']],
     # optional pool-size sweep (THREADS is passed through matrix.py --env if supported; see RERUN2_PLAN.md section 4)
